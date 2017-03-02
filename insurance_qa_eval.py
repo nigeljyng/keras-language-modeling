@@ -9,7 +9,7 @@ from time import strftime, gmtime, time
 import pickle
 import json
 
-import thread
+import _thread as thread  # in Python2 it's thread
 from scipy.stats import rankdata
 
 random.seed(42)
@@ -127,7 +127,16 @@ class Evaluator:
             #     bad_answers = self.pada(random.sample(self.answers.values(), len(good_answers)))
             # else:
             #     bad_answers = self.pada(get_bad_samples(indices, top_50))
-            bad_answers = self.pada(random.sample(self.answers.values(), len(good_answers)))
+
+            # In the paper, question - answer exhibit one to many relationship. But in our
+            # case, it's many to one (many questions have the same answer.
+            # This means that `answers` will have fewer items than `good_answers`
+            # To get enough bad answers, we sample with replacement.
+            # bad_answers = self.pada(random.sample(list(self.answers.values()), len(good_answers)))
+            bad_answers = self.pada(
+                    np.random.choice(list(self.answers.values()), size=len(good_answers), 
+                    replace=True)
+                )
 
             print('Fitting epoch %d' % i, file=sys.stderr)
             hist = self.model.fit([questions, good_answers, bad_answers], nb_epoch=1, batch_size=batch_size,
@@ -234,16 +243,18 @@ if __name__ == '__main__':
 
     import numpy as np
 
+    vocabulary = load(os.path.join(os.environ['INSURANCE_QA'], 'vocabulary'))
+
     conf = {
-        'n_words': 22353,
-        'question_len': 20,
+        'n_words': len(vocabulary) + 1,
+        'question_len': 100,
         'answer_len': 150,
         'margin': 0.05,
         'initial_embed_weights': 'word2vec_100_dim.embeddings',
 
         'training': {
             'batch_size': 100,
-            'nb_epoch': 2000,
+            'nb_epoch': 10, # 2000,
             'validation_split': 0.1,
         },
 
@@ -255,6 +266,7 @@ if __name__ == '__main__':
             'dropout': 0.5,
         }
     }
+    del vocabulary
 
     from keras_models import EmbeddingModel
     evaluator = Evaluator(conf, model=EmbeddingModel, optimizer='adam')
