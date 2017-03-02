@@ -3,6 +3,8 @@
 """
 Command-line script for generating embeddings
 Useful if you want to generate larger embeddings for some models
+
+TODO: Log a few words to check similarities
 """
 
 from __future__ import print_function
@@ -53,7 +55,7 @@ sentences = [revert(vocab, txt) for txt in answers.values()]
 sentences += [revert(vocab, q['question']) for q in load(data_path, 'train')]
 
 # run model
-model = Word2Vec(sentences, size=args.size, min_count=5, window=5, sg=1, iter=args.iter)
+model = Word2Vec(sentences, size=args.size, min_count=1, window=5, sg=1, iter=args.iter)
 weights = model.syn0
 d = dict([(k, v.index) for k, v in model.vocab.items()])
 emb = np.zeros(shape=(len(vocab)+1, args.size), dtype='float32')
