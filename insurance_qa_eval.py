@@ -290,5 +290,5 @@ if __name__ == '__main__':
     log('   - %.3f on test 2' % mrr[1])
     log('   - %.3f on dev' % mrr[2])
 
-    pickle.dump(conf, open(os.path.join(evaluator.path, 'model/conf.pkl'), 'wb'))
-    pickle.dump(evaluator, open(os.path.join(evaluator.path, 'model/evaluator.pkl'), 'wb'))
+    pickle.dump(conf, open(os.path.join(evaluator.path, 'models/conf.pkl'), 'wb'))
+    pickle.dump(evaluator, open(os.path.join(evaluator.path, 'models/evaluator.pkl'), 'wb'))
