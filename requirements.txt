@@ -1,0 +1,5 @@
+Flask==0.12
+gensim==0.13.4.1
+Keras==1.2.2
+numpy==1.12.0
+scipy==0.18.1
