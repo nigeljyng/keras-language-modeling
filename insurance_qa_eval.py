@@ -3,7 +3,7 @@ from __future__ import print_function
 import os
 
 import sys
-import random
+import random; random.seed(42)
 from time import strftime, gmtime, time
 
 import pickle
@@ -11,6 +11,7 @@ import json
 
 import _thread as thread  # in Python2 it's thread
 from scipy.stats import rankdata
+import numpy as np; np.random.seed(42)
 
 random.seed(42)
 
@@ -241,13 +242,15 @@ if __name__ == '__main__':
         thread.start_new_thread(start_server, tuple())
         print('Serving to port %d' % port, file=sys.stderr)
 
-    import numpy as np
+
+    def load(file_path):
+        return pickle.load(open(file_path, 'rb'))
 
     vocabulary = load(os.path.join(os.environ['INSURANCE_QA'], 'vocabulary'))
 
     conf = {
         'n_words': len(vocabulary) + 1,
-        'question_len': 100,
+        'question_len': 150,
         'answer_len': 150,
         'margin': 0.05,
         'initial_embed_weights': 'word2vec_100_dim.embeddings',
@@ -268,8 +271,9 @@ if __name__ == '__main__':
     }
     del vocabulary
 
-    from keras_models import EmbeddingModel
-    evaluator = Evaluator(conf, model=EmbeddingModel, optimizer='adam')
+    import keras_models
+    # evaluator = Evaluator(conf, model=keras_models.EmbeddingModel, optimizer='adam')
+    evaluator = Evaluator(conf, model=keras_models.ConvolutionModel, optimizer='adam')
 
     # train the model
     best_loss = evaluator.train()
@@ -285,3 +289,6 @@ if __name__ == '__main__':
     log('   - %.3f on test 1' % mrr[0])
     log('   - %.3f on test 2' % mrr[1])
     log('   - %.3f on dev' % mrr[2])
+
+    pickle.dump(conf, open(os.path.join(evaluator.path, 'model/conf.pkl'), 'wb'))
+    pickle.dump(evaluator, open(os.path.join(evaluator.path, 'model/evaluator.pkl'), 'wb'))
