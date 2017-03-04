@@ -5,25 +5,20 @@ Command-line script for generating embeddings
 Useful if you want to generate larger embeddings for some models
 
 TODO: Log a few words to check similarities
+TODO: Run 10 epochs with method in notebook (with decreasing learning rate)
 """
-
-from __future__ import print_function
 
 import os
 import sys
-import random
+import random; random.seed(42)
 import pickle
 import argparse
 import logging
 
-random.seed(42)
-
-
-def load(path, name):
-    return pickle.load(open(os.path.join(path, name), 'rb'))
-
 
 def revert(vocab, indices):
+    """Convert word indices into words
+    """
     return [vocab.get(i, 'X') for i in indices]
 
 try:
@@ -46,7 +41,13 @@ logger.info('running %s' % ' '.join(sys.argv))
 
 # imports go down here because they are time-consuming
 from gensim.models import Word2Vec
+import gensim.models.word2vec
 from keras_models import *
+from util import load
+import multiprocessing
+
+cores = multiprocessing.cpu_count()
+assert gensim.models.word2vec.FAST_VERSION > -1, "this will be painfully slow otherwise"
 
 vocab = load(data_path, 'vocabulary')
 
@@ -55,9 +56,18 @@ sentences = [revert(vocab, txt) for txt in answers.values()]
 sentences += [revert(vocab, q['question']) for q in load(data_path, 'train')]
 
 # run model
-model = Word2Vec(sentences, size=args.size, min_count=1, window=5, sg=1, iter=args.iter)
-weights = model.syn0
-d = dict([(k, v.index) for k, v in model.vocab.items()])
+# sg=0 uses CBOW. Read somewhere that cbow better for our use case
+model = Word2Vec(size=args.size, min_count=1, window=5, sg=0)
+model.build_vocab(sentences)
+for epoch in range(args.iter):
+    logging.info("Epoch %d" % epoch)
+    model.train(sentences)
+    model.alpha -= 0.002
+    model.min_alpha = model.alpha
+    random.shuffle(sentences)
+
+weights = model.wv.syn0
+d = dict([(k, v.index) for k, v in model.wv.vocab.items()])
 emb = np.zeros(shape=(len(vocab)+1, args.size), dtype='float32')
 
 for i, w in vocab.items():
@@ -66,4 +76,14 @@ for i, w in vocab.items():
 
 np.save(open('word2vec_%d_dim.embeddings' % args.size, 'wb'), emb)
 logger.info('saved to "word2vec_%d_dim.embeddings"' % args.size)
+np.save(open('word2vec_%d_dim.model' % args.size, 'wb'), model)
+logger.info('saved to "word2vec_%d_dim.model"' % args.size)
+
+logger.info("Most similar word vectors")
+test_words = ['£amount100', 'pin', 'bug', 'limit', 'froze', 'monzo', 'ios',
+    'monzome', 'address', 'number', 'queue', 'topup', '€number', 'unable']
+for tw in test_words:
+    logger.info("Most similar word to %s: \n %s" % 
+        (tw, ', '.join([tt[0] for tt in model.most_similar(tw)]))
+    )
 
