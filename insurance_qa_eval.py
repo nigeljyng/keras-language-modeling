@@ -1,5 +1,3 @@
-from __future__ import print_function
-
 import os
 
 import sys
@@ -13,11 +11,12 @@ import _thread as thread  # in Python2 it's thread
 from scipy.stats import rankdata
 import numpy as np; np.random.seed(42)
 
-random.seed(42)
-
 
 def log(x):
     print(x)
+
+def load(file_path):
+    return pickle.load(open(file_path, 'rb'))
 
 
 class Evaluator:
@@ -150,7 +149,7 @@ class Evaluator:
                 '(Best: Loss = %.4f, Epoch = %d)' % (val_loss['loss'], val_loss['epoch']))
 
             self.save_epoch(i)
-
+        # TODO: Check if np.isnan(np.sum). Make sure you get correct dimensions
         return val_loss
 
     ##### Evaluation #####
@@ -191,10 +190,12 @@ class Evaluator:
                 sims = self.model.predict([question, answers])
 
                 n_good = len(d['good'])
-                max_r = np.argmax(sims)
-                max_n = np.argmax(sims[:n_good])
+                # TODO: np.argmax will give the position of nan if there are nan values
+                # consider using np.nanargmax
+                max_r = np.argmax(sims)  # position of most similar answer
+                max_n = np.argmax(sims[:n_good])  # position of most similar correct answer
 
-                r = rankdata(sims, method='max')
+                r = rankdata(sims, method='max')  # ranks all the similarity scores
 
                 if verbose:
                     min_r = np.argmin(sims)
@@ -207,7 +208,7 @@ class Evaluator:
                     print('Expected: ({}) Rank = {} '.format(sims[max_n], r[max_n]) + ' '.join(self.revert(amax_n)))
                     print('Worst: ({})'.format(sims[min_r]) + ' '.join(self.revert(amin_r)))
 
-                c_1 += 1 if max_r == max_n else 0
+                c_1 += 1 if max_r == max_n else 0  # increment top1 occurence
                 c_2 += 1 / float(r[max_r] - r[max_n] + 1)
 
             top1 = c_1 / float(len(data))
@@ -243,9 +244,6 @@ if __name__ == '__main__':
         print('Serving to port %d' % port, file=sys.stderr)
 
 
-    def load(file_path):
-        return pickle.load(open(file_path, 'rb'))
-
     vocabulary = load(os.path.join(os.environ['INSURANCE_QA'], 'vocabulary'))
 
     conf = {
@@ -256,8 +254,8 @@ if __name__ == '__main__':
         'initial_embed_weights': 'word2vec_100_dim.embeddings',
 
         'training': {
-            'batch_size': 100,
-            'nb_epoch': 10, # 2000,
+            'batch_size': 128,
+            'nb_epoch': 2, #10, # 2000,
             'validation_split': 0.1,
         },
 
@@ -274,6 +272,7 @@ if __name__ == '__main__':
     import keras_models
     # evaluator = Evaluator(conf, model=keras_models.EmbeddingModel, optimizer='adam')
     evaluator = Evaluator(conf, model=keras_models.ConvolutionModel, optimizer='adam')
+    pickle.dump(conf, open(os.path.join(evaluator.path, '../models/conf.pkl'), 'wb'))
 
     # train the model
     best_loss = evaluator.train()
@@ -290,5 +289,4 @@ if __name__ == '__main__':
     log('   - %.3f on test 2' % mrr[1])
     log('   - %.3f on dev' % mrr[2])
 
-    pickle.dump(conf, open(os.path.join(evaluator.path, 'models/conf.pkl'), 'wb'))
-    pickle.dump(evaluator, open(os.path.join(evaluator.path, 'models/evaluator.pkl'), 'wb'))
+    pickle.dump(evaluator, open(os.path.join(evaluator.path, '../models/evaluator.pkl'), 'wb'))
